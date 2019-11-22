@@ -1,1 +1,104 @@
+@page "/tsp"
+@inject HttpClient Http
+
+<h1>TspSolver!</h1>
+
+
+@if (specs == null)
+{
     <p>Loading...</p>
+}
+else
+{
+    <form>
+        <label>
+            TSP specificatzion:
+            <select class="form-control" @onchange="TSPSpecSelected">
+                @foreach (var spec in specs)
+                {
+                    <option>@spec.Name</option>
+                }
+            </select>
+        </label>
+    </form>
+    <BECanvas @ref="scene" Width="500" Height="500"></BECanvas>
+}
+
+
+
+@code {
+    TspSpec[] specs;
+    TspSpec selectedTSPSpec;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var serverSpecs = await Http.GetJsonAsync<SerializableTspSpec[]>("tsp-data/tspspecs.json");
+        Console.WriteLine($"{string.Join(Environment.NewLine, (IEnumerable<SerializableTspSpec>)serverSpecs)}");
+        specs = serverSpecs
+            .Select(SerializableTspSpec.ToDomain)
+            .OrderBy(specs => specs.Cities.Count)
+            .ToArray();
+        selectedTSPSpec = specs.FirstOrDefault();
+    }
+
+    public class SerializableTspSpec
+    {
+        public string Name { get; set; }
+
+        public List<int> OptimalTour { get; set; }
+
+        public List<SerializableLocation> Cities { get; set; }
+
+        public static TspSpec ToDomain(SerializableTspSpec specs)
+        {
+            return new TspSpec(
+                specs.Name,
+                specs.OptimalTour,
+                specs.Cities.Select(SerializableLocation.ToDomain).ToList());
+        }
+
+        public override string ToString()
+        {
+            var coordinates = string.Join(", ", (IEnumerable<SerializableLocation>)Cities);
+            return $"{Name} ({Cities.Count} cities): ({coordinates})";
+
+        }
+
+    }
+
+    public class SerializableLocation
+    {
+        public double X { get; set; }
+        public double Y { get; set; }
+
+        public static Location ToDomain(SerializableLocation location)
+        {
+            return new Location(location.X, location.Y);
+        }
+
+        public override string ToString()
+        {
+            return string.Format("City: X=" + X + ", Y=" + Y);
+        }
+    }
+
+    private void TSPSpecSelected(ChangeEventArgs e)
+    {
+        var specName = (string)e.Value;
+        Console.WriteLine($"Selected spec: " + specName);
+        selectedTSPSpec = specs.Single(spec => spec.Name == specName);
+    }
+
+    BECanvasComponent scene;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (scene == null)
+        {
+            return;
+        }
+
+        var context = await scene.CreateCanvas2DAsync();
+        await context.ClearRectAsync(0,0,scene.Width,scene.Height);
+    }
+}
