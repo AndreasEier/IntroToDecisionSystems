@@ -36,7 +36,7 @@ else
         Console.WriteLine($"{string.Join(Environment.NewLine, (IEnumerable<SerializableTspSpec>)serverSpecs)}");
         specs = serverSpecs
             .Select(SerializableTspSpec.ToDomain)
-            .OrderBy(specs => specs.Cities.Count)
+            .OrderBy(spec => spec.Cities.Count)
             .ToArray();
         selectedTSPSpec = specs.FirstOrDefault();
     }
@@ -100,5 +100,45 @@ else
 
         var context = await scene.CreateCanvas2DAsync();
         await context.ClearRectAsync(0,0,scene.Width,scene.Height);
+
+        if(selectedTSPSpec == null)
+        {
+            return;
+        }
+
+
+        var minX = selectedTSPSpec.Cities
+            .Select(location => location.X)     // übersichtlichere Variante
+            .Min();
+
+        var maxX = selectedTSPSpec.Cities
+            .Max(location => location.X);       // kurze schreibweiße
+
+        var minY = selectedTSPSpec.Cities
+            .Select(location => location.Y)
+            .Min();
+
+        var maxY = selectedTSPSpec.Cities
+            .Max(location => location.Y);
+
+        Location GetSceneCoordinates(Location city)
+        {
+            const int padding = 10;
+            var xRatio = (scene.Width - 2*padding) / (maxX - minX);
+            var yRatio = (scene.Height - 2*padding) / (maxY - minY);
+            var x = (city.X-minX) * xRatio + padding;
+            var y = (city.Y-minY) * yRatio + padding;
+            return new Location(x, y);
+        }
+
+        foreach (var city in selectedTSPSpec.Cities.Select(GetSceneCoordinates))
+        {
+            await context.BeginPathAsync();
+            await context.ArcAsync(city.X, city.Y, 5, 0, 2 * Math.PI,false);
+            await context.FillAsync();
+        }
+
     }
+
+
 }
